@@ -4,6 +4,15 @@ library(polite)
 library(janitor)
 
 realgm_bow=bow('https://basketball.realgm.com/',user_agent="Sumitro Datta",force=TRUE)
+bbref_bow=bow("https://www.basketball-reference.com/",user_agent="Sumitro Datta",force=TRUE)
+
+bbref_leaders_scrape<-function(path_to_scrape){
+  session = nod(bbref_bow,path=path_to_scrape)
+  df=scrape(session) %>% html_elements(css="#leaders") %>% html_table() %>% .[[1]] %>% clean_names() %>% 
+    filter(lg !="ABA") %>% mutate(season=as.numeric(str_sub(season,end=4))+1) %>% 
+    mutate(player=ifelse(str_detect(player,"\\*"),str_sub(player,end=-2),player))
+  return(df)
+}
 
 realgm_award_scrape<-function(path_to_scrape){
   session = nod(realgm_bow,path=path_to_scrape)
@@ -77,6 +86,15 @@ realgm_award_scrape<-function(path_to_scrape){
   return(df)
 }
 
+scoring_leaders=bbref_leaders_scrape("leaders/pts_per_g_yearly.html")
+
+reb_leaders=bbref_leaders_scrape("leaders/trb_per_g_yearly.html")
+
+ast_leaders=bbref_leaders_scrape("leaders/ast_per_g_yearly.html")
+
+stl_leaders=bbref_leaders_scrape("leaders/stl_per_g_yearly.html")
+
+blk_leaders=bbref_leaders_scrape("leaders/blk_per_g_yearly.html")
 
 team_summaries=read_csv("Data/Team Summaries.csv") %>% select(season:team,tm=abbreviation)
 
@@ -92,13 +110,15 @@ players_of_week=realgm_award_scrape(path_to_scrape="nba/awards/by-type/Player-Of
 rookies_of_month=realgm_award_scrape(path_to_scrape="nba/awards/by-type/Rookie-Of-The-Month/31") %>%
   left_join(.,team_summaries)
 
-realgm_dfs_bbref_leaders=bind_rows(champions,players_of_month,players_of_week,rookies_of_month)
+realgm_dfs_bbref_leaders=bind_rows(champions,players_of_month,players_of_week,rookies_of_month,
+                                   scoring_leaders,reb_leaders,ast_leaders,stl_leaders,blk_leaders) 
+
 advanced=read_csv("Data/Advanced.csv") %>% filter(lg !="ABA")
 
-players_in_realgm_dfs=semi_join(advanced,realgm_dfs) %>%
+players_in_realgm_dfs_bbref_leaders=semi_join(advanced,realgm_dfs_bbref_leaders) %>%
   distinct(player,player_id)
 
-players_not_in_realgm_dfs=anti_join(advanced,players_in_realgm_dfs) %>% 
+players_not_in_realgm_dfs_bbref_leaders=anti_join(advanced,players_in_realgm_dfs_bbref_leaders) %>% 
   mutate(tm=ifelse(tm=="TOT","1TOT",tm)) %>% 
   group_by(player_id,season) %>% arrange(tm) %>% slice(1) %>% 
   mutate(tm=ifelse(tm=="1TOT","TOT",tm)) %>% arrange(desc(season),player)
@@ -112,7 +132,7 @@ distinct_end_of_season_teams=read_csv("Data/End of Season Teams.csv") %>% filter
 distinct_end_of_season_teams_voting=read_csv("Data/End of Season Teams (Voting).csv") %>% filter(lg !="ABA") %>% 
   distinct(player,player_id)
 
-no_allstars_no_awards=anti_join(players_not_in_realgm_dfs,distinct_awards) %>% 
+no_allstars_no_awards=anti_join(players_not_in_realgm_dfs_bbref_leaders,distinct_awards) %>% 
   anti_join(.,distinct_end_of_season_teams) %>%
   anti_join(.,distinct_allstars) %>% 
   anti_join(.,distinct_end_of_season_teams_voting) %>% 
