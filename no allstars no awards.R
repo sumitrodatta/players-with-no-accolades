@@ -123,6 +123,35 @@ players_not_in_realgm_dfs_bbref_leaders=anti_join(advanced,players_in_realgm_dfs
   group_by(player_id,season) %>% arrange(tm) %>% slice(1) %>% 
   mutate(tm=ifelse(tm=="1TOT","TOT",tm)) %>% arrange(desc(season),player)
 
+distinct_def_rookie_teams_voting=read_csv("Data/All NBA Voting Ballots.csv") %>% filter(award %in% c("All-Defense","All-Rook")) %>%
+  filter(player !="Abstained") %>%
+  group_by(year,award,player) %>% summarize(tot_pts=sum(points_given)) %>%
+  mutate(player = case_when(
+    str_detect(player,"Ginobili")~"Manu Ginóbili",
+    str_detect(player,"Bembry")~"DeAndre' Bembry",
+    str_detect(player,"Alex Abrines")~"Álex Abrines",
+    str_detect(player,"James Ennis|Frank Mason")~paste(player,"III"),
+    str_detect(player,"Juan Hernan")~"Juancho Hernangómez",
+    str_detect(player,"Xavier Tillman")~"Xavier Tillman Sr.",
+    str_detect(player,"Alperen")~"Alperen Şengün",
+    str_detect(player,"Marjanovic|Bojan|Bogdan Bogdanovic|Mirotic|Jokic|Antic|Nurkic")~
+      stringi::stri_replace_last_regex(player,pattern="c",replacement = "ć"),
+    str_detect(player,"Damjan")~"Damjan Rudež",
+    str_detect(player,"Vucevic")~"Nikola Vučević",
+    str_detect(player,"Willy Hernangomez")~"Willy Hernangómez",
+    str_detect(player,"Dario Saric")~"Dario Šarić",
+    str_detect(player,"Valanciunas")~"Jonas Valančiūnas",
+    str_detect(player,"Porzingis")~"Kristaps Porziņģis",
+    str_detect(player,"Davis Bertans")~"Dāvis Bertāns",
+    str_detect(player,'Schroder')~"Dennis Schröder",
+    str_detect(player,"Harry Giles|Robert Williams")~str_sub(player,end=-5),
+    str_detect(player,"Skal Lab")~"Skal Labissière",
+    str_detect(player,"Milos Teo")~"Miloš Teodosić",
+    str_detect(player,"Luka Donc")~"Luka Dončić",
+    str_detect(player,"Theo Male")~"Théo Maledon",
+    TRUE~player
+  )) %>% left_join(.,advanced) %>% ungroup() %>% distinct(player,player_id)
+
 distinct_allstars=read_csv("Data/All-Star Selections.csv") %>% filter(lg !="ABA") %>% distinct(player)
 
 distinct_awards=read_csv("Data/Player Award Shares.csv") %>% filter(str_detect(award,"aba",negate=TRUE)) %>% distinct(player,player_id)
@@ -136,6 +165,7 @@ no_allstars_no_awards=anti_join(players_not_in_realgm_dfs_bbref_leaders,distinct
   anti_join(.,distinct_end_of_season_teams) %>%
   anti_join(.,distinct_allstars) %>% 
   anti_join(.,distinct_end_of_season_teams_voting) %>% 
+  anti_join(.,distinct_def_rookie_teams_voting) %>%
   group_by(player_id,player) %>% 
   summarize(first_seas=min(season),last_seas=max(season),career_ws=sum(ws,na.rm=TRUE),career_vorp=sum(vorp,na.rm=TRUE),
-            ws_per_seas=career_ws/max(experience),vorp_per_seas=career_vorp/max(experience))
+            ws_per_seas=career_ws/max(experience),vorp_per_seas=career_vorp/max(experience)) %>% arrange(desc(career_ws))
