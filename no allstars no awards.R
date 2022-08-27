@@ -196,4 +196,7 @@ no_allstars_no_awards=anti_join(players_not_in_realgm_bbref,distinct_awards) %>%
   group_by(player_id,player) %>% 
   summarize(first_seas=min(season),last_seas=max(season),career_ws=sum(ws,na.rm=TRUE),career_vorp=sum(vorp,na.rm=TRUE),
             peak_ws=max(ws,na.rm = TRUE),peak_vorp=max(vorp,na.rm=TRUE),
-            ws_per_seas=career_ws/max(experience),vorp_per_seas=career_vorp/max(experience)) %>% arrange(desc(career_ws))
+            ws_per_seas=career_ws/max(experience),vorp_per_seas=career_vorp/max(experience)) %>% arrange(desc(career_ws)) %>%
+  mutate(active=last_seas %in% 2020:2022,.after="last_seas")
+
+write_csv(no_allstars_no_awards,"No Allstars, No Awards.csv")
